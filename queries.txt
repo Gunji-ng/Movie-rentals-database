@@ -1,0 +1,129 @@
+/* Query 1:
+Query that lists each movie, the film category it is classified in,
+and the number of times it has been rented out.*/
+
+
+WITH t1 AS (SELECT f.title film_title,
+                  c.name category_name,
+                  r.rental_id rental_ID
+            FROM film f
+            JOIN film_category fc
+            ON f.film_id = fc.film_id
+            JOIN category c
+            ON fc.category_id = c.category_id
+            JOIN inventory i
+            ON f.film_id = i.film_id
+            JOIN rental r
+            ON i.inventory_id = r.inventory_id
+            WHERE c.name = 'Animation'
+                OR c.name = 'Children'
+                OR c.name = 'Classics'
+                OR c.name = 'Comedy'
+                OR c.name = 'Family'
+                OR c.name = 'Music')
+
+SELECT film_title,
+      category_name,
+      COUNT(rental_id) rental_count
+FROM t1
+GROUP BY 1, 2
+ORDER BY 2, 1;
+
+
+
+...............................................................................
+
+
+
+/* Query 2:
+A table with the movie titles divided into 4 levels
+(first_quarter, second_quarter, third_quarter, and final_quarter)
+based on the quartiles (25%, 50%, 75%) of the rental duration for
+movies across all categories.*/
+
+
+WITH t1 AS (SELECT f.title film_title,
+                  c.name category_name,
+                  f.rental_duration,
+                  NTILE(4) OVER (ORDER BY rental_duration) AS standard_quartile
+            FROM film f
+            JOIN film_category fc
+            ON f.film_id = fc.film_id
+            JOIN category c
+            ON fc.category_id = c.category_id)
+
+SELECT film_title,
+      category_name,
+      rental_duration,
+      standard_quartile
+FROM t1
+WHERE category_name = 'Animation'
+    OR category_name = 'Children'
+    OR category_name = 'Classics'
+    OR category_name = 'Comedy'
+    OR category_name = 'Family'
+    OR category_name = 'Music';
+
+
+
+...............................................................................
+
+
+
+*/ Query 3:
+A table with the family-friendly film category,
+each of the quartiles, and the corresponding count of movies
+within each combination of film category for each corresponding
+rental duration category.*/
+
+
+WITH t1 AS (SELECT f.title film_title,
+                  c.name category_name,
+                  f.rental_duration rental_duration,
+                  NTILE(4) OVER (ORDER BY rental_duration) AS standard_quartile
+            FROM film f
+            JOIN film_category fc
+            ON f.film_id = fc.film_id
+            JOIN category c
+            ON fc.category_id = c.category_id
+            WHERE c.name = 'Animation'
+                OR c.name = 'Children'
+                OR c.name = 'Classics'
+                OR c.name = 'Comedy'
+                OR c.name = 'Family'
+                OR c.name = 'Music')
+
+SELECT DISTINCT category_name,
+                standard_quartile,
+                COUNT(category_name) OVER (PARTITION BY category_name, standard_quartile ORDER BY category_name)
+FROM t1
+ORDER BY 1, 2;
+
+
+
+..............................................................................
+
+
+
+/* Query 4:
+Query that returns the store ID for the store, the year and month and
+the number of rental orders each store has fulfilled for that month.*/
+
+
+WITH t1 AS (SELECT DATE_PART('month', r.rental_date) AS rental_month,
+                  DATE_PART('year', r.rental_date) AS rental_year,
+                  s.store_id store_id,
+                  r.rental_id rentals
+            FROM rental r
+            JOIN staff st
+            ON r.staff_id = st.staff_id
+            JOIN store s
+            ON st.store_id = s.store_id)
+
+SELECT rental_month,
+      rental_year,
+      store_id,
+      COUNT(rentals) AS count_rentals
+FROM t1
+GROUP BY 2, 1, 3
+ORDER BY 2, 1, 4 DESC;
